@@ -3,12 +3,14 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi"
+	"github.com/rpstvs/fm-goapp/internal/middleware"
 	"github.com/rpstvs/fm-goapp/internal/store"
 	"github.com/rpstvs/fm-goapp/internal/utils"
 )
@@ -54,6 +56,13 @@ func (wh *WorkoutHanlder) HandleCreateWorkout(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	currentUser := middleware.GetUser(r)
+
+	if currentUser == nil || currentUser == store.AnonymousUser {
+		return
+	}
+
+	workout.UserID = currentUser.ID
 	createdWorkout, err := wh.workoutStore.CreateWorkout(&workout)
 
 	if err != nil {
@@ -126,6 +135,25 @@ func (wh *WorkoutHanlder) HandleUpdateWorkoutById(w http.ResponseWriter, r *http
 		existingWorkout.Entries = updateWorkoutRequest.Entries
 	}
 
+	currentUser := middleware.GetUser(r)
+
+	if currentUser == nil || currentUser == store.AnonymousUser {
+		return
+	}
+
+	workoutOwner, err := wh.workoutStore.GetWorkoutOwner(int64(currentUser.ID))
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return
+		}
+		return
+	}
+
+	if workoutOwner != currentUser.ID {
+		return
+	}
+
 	err = wh.workoutStore.UpdateWorkout(existingWorkout)
 
 	if err != nil {
@@ -151,6 +179,25 @@ func (wh *WorkoutHanlder) HandleDeleteWorkoutById(w http.ResponseWriter, r *http
 
 	if err != nil {
 		http.NotFound(w, r)
+		return
+	}
+
+	currentUser := middleware.GetUser(r)
+
+	if currentUser == nil || currentUser == store.AnonymousUser {
+		return
+	}
+
+	workoutOwner, err := wh.workoutStore.GetWorkoutOwner(int64(currentUser.ID))
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return
+		}
+		return
+	}
+
+	if workoutOwner != currentUser.ID {
 		return
 	}
 
