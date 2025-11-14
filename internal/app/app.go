@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/rpstvs/fm-goapp/internal/api"
+	"github.com/rpstvs/fm-goapp/internal/middleware"
 	"github.com/rpstvs/fm-goapp/internal/store"
 	"github.com/rpstvs/fm-goapp/migrations"
 )
@@ -16,6 +17,8 @@ type Application struct {
 	Logger         *log.Logger
 	WorkoutHandler *api.WorkoutHanlder
 	UserHandler    *api.UserHandler
+	TokenHandler   *api.TokenHandler
+	Middleware     middleware.UserMiddleware
 	DB             *sql.DB
 }
 
@@ -36,15 +39,22 @@ func NewApplication() (*Application, error) {
 	//stores
 	workoutStore := store.NewPostgresWorkoutStore(pgDB)
 	userStore := store.NewPostgresUserStore(pgDB)
+	tokenStore := store.NewPostgresTokenStore(pgDB)
 
 	//handlers
 	workoutHandler := api.NewWorkoutHandler(workoutStore, logger)
 	userHandler := api.NewUserHandler(userStore, logger)
+	tokenHandler := api.NewTokenHandler(tokenStore, userStore, logger)
+	middlewareHandler := middleware.UserMiddleware{
+		UserStore: userStore,
+	}
 
 	app := &Application{
 		Logger:         logger,
 		WorkoutHandler: workoutHandler,
 		UserHandler:    userHandler,
+		TokenHandler:   tokenHandler,
+		Middleware:     middlewareHandler,
 		DB:             pgDB,
 	}
 

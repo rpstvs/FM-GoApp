@@ -69,3 +69,16 @@ func (um *UserMiddleware) Authenticate(next http.Handler) http.Handler {
 		return
 	})
 }
+
+func (um *UserMiddleware) RequireUser(next http.Handler) http.Handler {
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			user := GetUser(r)
+
+			if user.IsAnonymous() {
+				utils.WriteJSON(w, http.StatusUnauthorized, utils.Envelope{})
+			}
+
+			next.ServeHTTP(w, r)
+		})
+}
